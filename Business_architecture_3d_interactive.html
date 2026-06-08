@@ -1,0 +1,1086 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Business Architecture | DRE 3D Value Chain - Interactive</title>
+  <script src="https://unpkg.com/cytoscape@3.28.1/dist/cytoscape.min.js"></script>
+  <script src="https://unpkg.com/dagre@0.8.5/dist/dagre.min.js"></script>
+  <script src="https://unpkg.com/cytoscape-dagre@2.5.0/cytoscape-dagre.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Inter', 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg, #0f0c29 0%, #1a1a3e 40%, #24243e 100%);
+      color: #eee;
+      overflow: hidden;
+      height: 100vh;
+    }
+    #cy {
+      width: 100vw;
+      height: 100vh;
+      position: absolute;
+      top: 0; left: 0;
+    }
+
+    /* ── Title Bar ── */
+    #title-bar {
+      position: fixed;
+      top: 16px;
+      left: 20px;
+      z-index: 1000;
+      background: rgba(15, 12, 41, 0.88);
+      padding: 14px 22px;
+      border-radius: 14px;
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255,255,255,0.08);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+    }
+    #title-bar h1 {
+      font-size: 15px;
+      font-weight: 600;
+      letter-spacing: -0.3px;
+      background: linear-gradient(90deg, #e8f5e9, #90caf9);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    #title-bar p {
+      font-size: 10.5px;
+      opacity: 0.5;
+      margin-top: 5px;
+      font-weight: 300;
+      line-height: 1.5;
+    }
+
+    /* ── Controls ── */
+    #controls {
+      position: fixed;
+      top: 16px;
+      right: 20px;
+      z-index: 1000;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+    #controls button {
+      width: 40px;
+      height: 40px;
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 9px;
+      background: rgba(15, 12, 41, 0.8);
+      color: #bbb;
+      font-size: 16px;
+      cursor: pointer;
+      backdrop-filter: blur(12px);
+      transition: all 0.2s ease;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    #controls button:hover {
+      background: rgba(144, 202, 249, 0.2);
+      border-color: rgba(144, 202, 249, 0.4);
+      color: #fff;
+      transform: scale(1.05);
+    }
+    #controls button.active {
+      background: rgba(255, 145, 0, 0.25);
+      border-color: rgba(255, 145, 0, 0.5);
+      color: #FF9100;
+    }
+    #controls .sep {
+      height: 1px;
+      background: rgba(255,255,255,0.08);
+      margin: 3px 0;
+    }
+    #controls button .label {
+      font-size: 8px;
+      position: absolute;
+      bottom: -14px;
+      white-space: nowrap;
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+    #controls button:hover .label { opacity: 0.7; }
+
+
+
+    /* ── Info Panel ── */
+    #info-panel {
+      position: fixed;
+      bottom: 16px;
+      right: 20px;
+      z-index: 1000;
+      background: rgba(15, 12, 41, 0.92);
+      padding: 16px 20px;
+      border-radius: 14px;
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(144, 202, 249, 0.2);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+      font-size: 11.5px;
+      max-width: 290px;
+      display: none;
+      animation: slideUp 0.2s ease;
+    }
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    #info-panel h3 {
+      font-size: 13px;
+      margin-bottom: 6px;
+      font-weight: 600;
+      background: linear-gradient(90deg, #90caf9, #ce93d8);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    #info-panel .detail { opacity: 0.7; line-height: 1.6; font-weight: 300; }
+    #info-panel .detail b { font-weight: 500; opacity: 1; color: #b0bec5; }
+    .badge {
+      display: inline-block;
+      padding: 2px 7px;
+      border-radius: 4px;
+      font-size: 9.5px;
+      font-weight: 500;
+      margin-top: 6px;
+      margin-right: 4px;
+    }
+    .badge-up { background: rgba(255,183,77,0.2); color: #FFB74D; }
+    .badge-down { background: rgba(102,187,106,0.2); color: #66BB6A; }
+
+    /* ── Resize controls ── */
+    .resize-controls {
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid rgba(255,255,255,0.1);
+    }
+    .resize-controls label {
+      font-size: 9.5px;
+      opacity: 0.6;
+      display: block;
+      margin-bottom: 3px;
+    }
+    .resize-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+    .resize-row span {
+      font-size: 9px;
+      opacity: 0.5;
+      min-width: 18px;
+    }
+    .resize-row input[type="range"] {
+      flex: 1;
+      height: 4px;
+      -webkit-appearance: none;
+      appearance: none;
+      background: rgba(255,255,255,0.15);
+      border-radius: 2px;
+      outline: none;
+      cursor: pointer;
+    }
+    .resize-row input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: #90caf9;
+      cursor: pointer;
+    }
+    .resize-row .val {
+      font-size: 9.5px;
+      color: #90caf9;
+      min-width: 28px;
+      text-align: right;
+    }
+
+    /* ── Drag mode indicator ── */
+    #drag-indicator {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(255,145,0,0.15);
+      border: 1px solid rgba(255,145,0,0.3);
+      padding: 8px 18px;
+      border-radius: 8px;
+      font-size: 11px;
+      color: #FF9100;
+      backdrop-filter: blur(8px);
+      display: none;
+      pointer-events: none;
+      z-index: 2000;
+    }
+  </style>
+</head>
+<body>
+
+<div id="title-bar">
+  <h1>Business Architecture  |  DRE 3D Value Chain</h1>
+  <p>Click node → highlight relationships &nbsp;|&nbsp; Drag nodes to rearrange<br>
+  <kbd style="background:rgba(255,255,255,0.08);padding:1px 4px;border-radius:3px;font-size:9px">Esc</kbd> Reset &nbsp;
+  <kbd style="background:rgba(255,255,255,0.08);padding:1px 4px;border-radius:3px;font-size:9px">+/-</kbd> Zoom</p>
+</div>
+
+<div id="controls">
+  <button id="zoom-in" title="Zoom In">+</button>
+  <button id="zoom-out" title="Zoom Out">&minus;</button>
+  <div class="sep"></div>
+  <button id="fit" title="Fit to Screen">&#x25A3;</button>
+  <button id="relayout" title="Auto Re-layout">&#x2B04;</button>
+  <div class="sep"></div>
+  <button id="lock-toggle" title="Lock positions (prevent dragging)">&#x1F513;</button>
+  <button id="reset" title="Reset Highlight">&#x21BA;</button>
+</div>
+
+
+
+<div id="info-panel">
+  <h3 id="info-title"></h3>
+  <div id="info-detail" class="detail"></div>
+  <div id="resize-section" class="resize-controls" style="display:none">
+    <label>Resize Node</label>
+    <div class="resize-row">
+      <span>W</span>
+      <input type="range" id="resize-w" min="60" max="300" value="145">
+      <span class="val" id="resize-w-val">145</span>
+    </div>
+    <div class="resize-row">
+      <span>H</span>
+      <input type="range" id="resize-h" min="30" max="200" value="62">
+      <span class="val" id="resize-h-val">62</span>
+    </div>
+  </div>
+</div>
+
+<div id="drag-indicator">Drag mode: move nodes freely</div>
+
+<div id="cy"></div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+
+  // ═══════════════════════════════════════════════
+  // NODE DEFINITIONS
+  // Layout hierarchy (top → bottom):
+  //   Stakeholders
+  //   3D Quality Gate [Detection → Diagnosis → Deflection]
+  //   Business Outcomes
+  //   Platform Enablers | Governance (side by side)
+  // ═══════════════════════════════════════════════
+  const nodes = [
+    // ── Top-level group parents ──
+    { data: { id: 'STK', label: 'Stakeholders', layer: 'stakeholder', tier: 0 } },
+    { data: { id: 'GATE', label: '3D Quality Gate', layer: 'gate', tier: 1 } },
+    { data: { id: 'D1', label: 'DETECTION · Observe', parent: 'GATE', layer: 'detection', tier: 1 } },
+    { data: { id: 'D2', label: 'DIAGNOSIS · Diagnose + Decide', parent: 'GATE', layer: 'diagnosis', tier: 1 } },
+    { data: { id: 'D3', label: 'DEFLECTION · Act + Assure', parent: 'GATE', layer: 'deflection', tier: 1 } },
+    { data: { id: 'OUT', label: 'Business Outcomes', layer: 'outcome', tier: 2 } },
+    { data: { id: 'EN', label: 'Platform Enablers', layer: 'platform', tier: 3 } },
+    { data: { id: 'GOV', label: 'Governance & Operating Model', layer: 'governance', tier: 3 } },
+
+    // ── Stakeholders ──
+    { data: { id: 'DE', label: 'Data\nEngineer', parent: 'STK', layer: 'stakeholder', desc: 'Discovery, Lineage, Remediation (D1, D3)' } },
+    { data: { id: 'AC', label: 'Business\nAnalytics', parent: 'STK', layer: 'stakeholder', desc: 'Discovery, Lineage, DQ (D1)' } },
+    { data: { id: 'PO', label: 'Product\nOwner', parent: 'STK', layer: 'stakeholder', desc: 'DQ Assurance, What-If (D1, D2)' } },
+    { data: { id: 'OPS', label: 'Platform\nOperations', parent: 'STK', layer: 'stakeholder', desc: 'Anomaly Detection, Alerting, Remediation (D1, D3)' } },
+    { data: { id: 'TL', label: 'Tech\nLead', parent: 'STK', layer: 'stakeholder', desc: 'Incident Triage (D2)' } },
+    { data: { id: 'DG', label: 'Data\nGovernance', parent: 'STK', layer: 'stakeholder', desc: 'Contracts, Audit (D3)' } },
+
+    // ── Detection (D1) ──
+    { data: { id: 'C1', label: 'Volume Anomalies\n(Z-score)', parent: 'D1', layer: 'capability' } },
+    { data: { id: 'C2', label: 'Distribution Drift\n(Categorical shifts, % deviation)', parent: 'D1', layer: 'capability' } },
+    { data: { id: 'C8', label: 'Behavioral Anomalies\n(Bot/fraud: rapid deletes, tier jumps)', parent: 'D1', layer: 'capability' } },
+    { data: { id: 'C3', label: 'DRRI 5D Quality Rules\n(Fresh · Accurate · Complete\nConsistent · Valid)', parent: 'D1', layer: 'capability' } },
+    { data: { id: 'C10', label: 'Alerting &\nNotification', parent: 'D1', layer: 'capability' } },
+    { data: { id: 'A_D1', label: 'Agents:\nProfiler · Baseline Learner', parent: 'D1', layer: 'agent' } },
+
+    // ── Diagnosis (D2) ──
+    { data: { id: 'C6', label: 'Incident Triage\n& Resolution', parent: 'D2', layer: 'capability' } },
+    { data: { id: 'A_D2', label: 'Agents:\nDrift Classifier · Lineage Tracer\nSegment Slicer · Playbook Compiler\nPrescription Router', parent: 'D2', layer: 'agent' } },
+
+    // ── Deflection (D3) ──
+    { data: { id: 'C4', label: 'Data Contract\nManagement', parent: 'D3', layer: 'capability' } },
+    { data: { id: 'C7', label: 'Audit &\nCompliance', parent: 'D3', layer: 'capability' } },
+    { data: { id: 'C9', label: 'Automated Remediation\n& Recovery', parent: 'D3', layer: 'capability' } },
+    { data: { id: 'A_D3', label: 'Agents:\nState Validator · Circuit Breaker\nApproval Gate · Domain Executors', parent: 'D3', layer: 'agent' } },
+
+    // ── Business Outcomes ──
+    { data: { id: 'O1', label: 'Higher\nData Trust', parent: 'OUT', layer: 'outcome' } },
+    { data: { id: 'O2', label: 'Faster MTTD\n& Resolution', parent: 'OUT', layer: 'outcome' } },
+    { data: { id: 'O3', label: 'Reduced\nChange Risk', parent: 'OUT', layer: 'outcome' } },
+    { data: { id: 'O4', label: 'Audit-ready\nGovernance', parent: 'OUT', layer: 'outcome' } },
+    { data: { id: 'O5', label: 'Proactive\nRisk Detection', parent: 'OUT', layer: 'outcome' } },
+    { data: { id: 'O6', label: 'Continuous\nImprovement', parent: 'OUT', layer: 'outcome' } },
+
+    // ── Governance ──
+    { data: { id: 'G1', label: 'Data Mesh\nDomain Ownership', parent: 'GOV', layer: 'governance' } },
+    { data: { id: 'G2', label: 'SLA Policy\n(DRRI, freshness, latency)', parent: 'GOV', layer: 'governance' } },
+    { data: { id: 'G3', label: 'Governance Cadence\n(Weekly + Monthly)', parent: 'GOV', layer: 'governance' } },
+
+    // ── Platform Enablers ──
+    { data: { id: 'P1', label: 'Digital DataMap\n(Streamlit / Databricks)', parent: 'EN', layer: 'platform' } },
+    { data: { id: 'P2', label: 'Unity Catalog\nLineage APIs', parent: 'EN', layer: 'platform' } },
+    { data: { id: 'P3', label: 'DQ Central\nValidation Results', parent: 'EN', layer: 'platform' } },
+    { data: { id: 'P4', label: 'Contract Registry\n(JSON + Rules)', parent: 'EN', layer: 'platform' } },
+    { data: { id: 'P5', label: 'CI/CD\n(Jenkins, Orchestration)', parent: 'EN', layer: 'platform' } },
+    { data: { id: 'P6', label: 'Anomaly Detection\nEngine', parent: 'EN', layer: 'platform' } },
+    { data: { id: 'P7', label: 'DIGITAL_DATA_ANOMALIES\nDelta Table', parent: 'EN', layer: 'platform' } },
+    { data: { id: 'P8', label: 'DQ Chatbot\n(RAG / DRRI-grounded)', parent: 'EN', layer: 'platform' } },
+  ];
+
+  // ═══════════════════════════════════════════════
+  // EDGE DEFINITIONS
+  // ═══════════════════════════════════════════════
+  const edges = [
+    // Phase transitions (Detection → Diagnosis → Deflection)
+    { data: { source: 'C10', target: 'C6', label: 'handover', edgeType: 'phase' } },
+    { data: { source: 'C6', target: 'C9', label: 'prescription', edgeType: 'phase' } },
+    { data: { source: 'C9', target: 'C1', label: 'feedback loop', edgeType: 'feedback' } },
+
+    // Stakeholders → Capabilities
+    { data: { source: 'DE', target: 'C1', label: '', edgeType: 'stakeholder' } },
+    { data: { source: 'DE', target: 'C2', label: '', edgeType: 'stakeholder' } },
+    { data: { source: 'DE', target: 'C9', label: '', edgeType: 'stakeholder' } },
+    { data: { source: 'PO', target: 'C3', label: '', edgeType: 'stakeholder' } },
+    { data: { source: 'PO', target: 'C6', label: '', edgeType: 'stakeholder' } },
+    { data: { source: 'TL', target: 'C6', label: '', edgeType: 'stakeholder' } },
+    { data: { source: 'DG', target: 'C4', label: '', edgeType: 'stakeholder' } },
+    { data: { source: 'DG', target: 'C7', label: '', edgeType: 'stakeholder' } },
+    { data: { source: 'OPS', target: 'C8', label: '', edgeType: 'stakeholder' } },
+    { data: { source: 'OPS', target: 'C9', label: '', edgeType: 'stakeholder' } },
+    { data: { source: 'OPS', target: 'C10', label: '', edgeType: 'stakeholder' } },
+    { data: { source: 'AC', target: 'C1', label: '', edgeType: 'stakeholder' } },
+    { data: { source: 'AC', target: 'C2', label: '', edgeType: 'stakeholder' } },
+    { data: { source: 'AC', target: 'C3', label: '', edgeType: 'stakeholder' } },
+
+    // Capabilities → Outcomes
+    { data: { source: 'C1', target: 'O5', label: 'early warning', edgeType: 'outcome' } },
+    { data: { source: 'C2', target: 'O5', label: 'early warning', edgeType: 'outcome' } },
+    { data: { source: 'C3', target: 'O1', label: 'trust signals', edgeType: 'outcome' } },
+    { data: { source: 'C1', target: 'O1', label: 'trust signals', edgeType: 'outcome' } },
+    { data: { source: 'C6', target: 'O2', label: 'faster triage', edgeType: 'outcome' } },
+    { data: { source: 'C6', target: 'O3', label: 'dependency mapping', edgeType: 'outcome' } },
+    { data: { source: 'C7', target: 'O4', label: 'compliance proof', edgeType: 'outcome' } },
+    { data: { source: 'C9', target: 'O2', label: 'auto-resolution', edgeType: 'outcome' } },
+    { data: { source: 'C3', target: 'O6', label: 'feedback learning', edgeType: 'outcome' } },
+
+    // Outcomes → Platform / Governance
+    { data: { source: 'O5', target: 'P6', label: 'powered by', edgeType: 'enabler' } },
+    { data: { source: 'O1', target: 'P3', label: 'sourced from', edgeType: 'enabler' } },
+    { data: { source: 'O1', target: 'G2', label: 'governed by', edgeType: 'enabler' } },
+    { data: { source: 'O2', target: 'P7', label: 'alerts from', edgeType: 'enabler' } },
+    { data: { source: 'O4', target: 'P5', label: 'assured by', edgeType: 'enabler' } },
+    { data: { source: 'O3', target: 'P4', label: 'contracts in', edgeType: 'enabler' } },
+    { data: { source: 'C9', target: 'P5', label: 'executed via', edgeType: 'enabler' } },
+    { data: { source: 'P8', target: 'C6', label: 'triage assist', edgeType: 'enabler' } },
+    { data: { source: 'P8', target: 'C3', label: 'DQ suggestions', edgeType: 'enabler' } },
+    { data: { source: 'P6', target: 'P7', label: 'alerts', edgeType: 'enabler' } },
+
+    // Agent connections
+    { data: { source: 'A_D1', target: 'C1', label: '', edgeType: 'agent' } },
+    { data: { source: 'A_D1', target: 'C2', label: '', edgeType: 'agent' } },
+    { data: { source: 'A_D1', target: 'C8', label: '', edgeType: 'agent' } },
+    { data: { source: 'A_D2', target: 'C6', label: '', edgeType: 'agent' } },
+
+    { data: { source: 'A_D3', target: 'C4', label: '', edgeType: 'agent' } },
+    { data: { source: 'A_D3', target: 'C9', label: '', edgeType: 'agent' } },
+    { data: { source: 'A_D3', target: 'C7', label: '', edgeType: 'agent' } },
+  ];
+
+  // ═══════════════════════════════════════════════
+  // CYTOSCAPE INITIALIZATION
+  // ═══════════════════════════════════════════════
+  const cy = cytoscape({
+    container: document.getElementById('cy'),
+    elements: { nodes, edges },
+    wheelSensitivity: 0.25,
+    minZoom: 0.12,
+    maxZoom: 5,
+    autoungrabify: false,  // NODES ARE DRAGGABLE
+    style: [
+      // ── "3D Quality Gate" container ──
+      {
+        selector: 'node[layer="gate"]',
+        style: {
+          'background-color': '#E3F2FD',
+          'background-opacity': 0.08,
+          'border-color': '#42A5F5',
+          'border-width': 2.5,
+          'border-opacity': 0.5,
+          'border-style': 'dashed',
+          'label': 'data(label)',
+          'font-size': 14,
+          'font-weight': 'bold',
+          'text-valign': 'top',
+          'text-halign': 'center',
+          'color': '#64B5F6',
+          'padding': '35px',
+          'shape': 'roundrectangle',
+          'text-margin-y': -5,
+        }
+      },
+
+      // ── Compound/Parent node styles ──
+      {
+        selector: 'node[layer="stakeholder"]:parent',
+        style: {
+          'background-color': '#FFF3E0',
+          'background-opacity': 0.14,
+          'border-color': '#FFB74D',
+          'border-width': 2,
+          'border-opacity': 0.6,
+          'label': 'data(label)',
+          'font-size': 13,
+          'font-weight': 'bold',
+          'text-valign': 'top',
+          'text-halign': 'center',
+          'color': '#FFB74D',
+          'padding': '28px',
+          'shape': 'roundrectangle',
+        }
+      },
+      {
+        selector: 'node[layer="detection"]',
+        style: {
+          'background-color': '#FFCDD2',
+          'background-opacity': 0.12,
+          'border-color': '#EF5350',
+          'border-width': 2,
+          'border-opacity': 0.6,
+          'label': 'data(label)',
+          'font-size': 11,
+          'font-weight': 'bold',
+          'text-valign': 'top',
+          'text-halign': 'center',
+          'color': '#EF5350',
+          'padding': '25px',
+          'shape': 'roundrectangle',
+        }
+      },
+      {
+        selector: 'node[layer="diagnosis"]',
+        style: {
+          'background-color': '#F8BBD0',
+          'background-opacity': 0.12,
+          'border-color': '#EC407A',
+          'border-width': 2,
+          'border-opacity': 0.6,
+          'label': 'data(label)',
+          'font-size': 11,
+          'font-weight': 'bold',
+          'text-valign': 'top',
+          'text-halign': 'center',
+          'color': '#EC407A',
+          'padding': '25px',
+          'shape': 'roundrectangle',
+        }
+      },
+      {
+        selector: 'node[layer="deflection"]',
+        style: {
+          'background-color': '#CE93D8',
+          'background-opacity': 0.12,
+          'border-color': '#AB47BC',
+          'border-width': 2,
+          'border-opacity': 0.6,
+          'label': 'data(label)',
+          'font-size': 11,
+          'font-weight': 'bold',
+          'text-valign': 'top',
+          'text-halign': 'center',
+          'color': '#CE93D8',
+          'padding': '25px',
+          'shape': 'roundrectangle',
+        }
+      },
+      {
+        selector: 'node[layer="outcome"]:parent',
+        style: {
+          'background-color': '#C8E6C9',
+          'background-opacity': 0.1,
+          'border-color': '#66BB6A',
+          'border-width': 2,
+          'border-opacity': 0.5,
+          'label': 'data(label)',
+          'font-size': 12,
+          'font-weight': 'bold',
+          'text-valign': 'top',
+          'text-halign': 'center',
+          'color': '#81C784',
+          'padding': '28px',
+          'shape': 'roundrectangle',
+        }
+      },
+      {
+        selector: 'node[layer="governance"]:parent',
+        style: {
+          'background-color': '#E1BEE7',
+          'background-opacity': 0.1,
+          'border-color': '#BA68C8',
+          'border-width': 2,
+          'border-opacity': 0.5,
+          'label': 'data(label)',
+          'font-size': 12,
+          'font-weight': 'bold',
+          'text-valign': 'top',
+          'text-halign': 'center',
+          'color': '#BA68C8',
+          'padding': '28px',
+          'shape': 'roundrectangle',
+        }
+      },
+      {
+        selector: 'node[layer="platform"]:parent',
+        style: {
+          'background-color': '#CFD8DC',
+          'background-opacity': 0.1,
+          'border-color': '#78909C',
+          'border-width': 2,
+          'border-opacity': 0.5,
+          'label': 'data(label)',
+          'font-size': 12,
+          'font-weight': 'bold',
+          'text-valign': 'top',
+          'text-halign': 'center',
+          'color': '#90A4AE',
+          'padding': '28px',
+          'shape': 'roundrectangle',
+        }
+      },
+
+      // ── Child node styles ──
+      {
+        selector: 'node[layer="stakeholder"]:child',
+        style: {
+          'background-color': '#FFF3E0',
+          'border-color': '#FF9800',
+          'border-width': 2,
+          'label': 'data(label)',
+          'font-size': 10,
+          'font-weight': '500',
+          'text-valign': 'center',
+          'text-halign': 'center',
+          'text-wrap': 'wrap',
+          'text-max-width': '80px',
+          'width': 78,
+          'height': 78,
+          'shape': 'ellipse',
+          'color': '#4E342E',
+          'shadow-blur': 8,
+          'shadow-color': 'rgba(255,152,0,0.2)',
+          'shadow-offset-x': 0,
+          'shadow-offset-y': 3,
+          'shadow-opacity': 0.5,
+        }
+      },
+      {
+        selector: 'node[layer="capability"]',
+        style: {
+          'background-color': '#E8F5E9',
+          'border-color': '#4CAF50',
+          'border-width': 1.5,
+          'label': 'data(label)',
+          'font-size': 9,
+          'font-weight': '400',
+          'text-valign': 'center',
+          'text-halign': 'center',
+          'text-wrap': 'wrap',
+          'text-max-width': '130px',
+          'width': 145,
+          'height': 62,
+          'shape': 'roundrectangle',
+          'color': '#1B5E20',
+          'shadow-blur': 6,
+          'shadow-color': 'rgba(76,175,80,0.15)',
+          'shadow-offset-x': 0,
+          'shadow-offset-y': 3,
+          'shadow-opacity': 0.4,
+        }
+      },
+      {
+        selector: 'node[layer="agent"]',
+        style: {
+          'background-color': '#FFF9C4',
+          'border-color': '#FBC02D',
+          'border-width': 2,
+          'label': 'data(label)',
+          'font-size': 9,
+          'text-valign': 'center',
+          'text-halign': 'center',
+          'text-wrap': 'wrap',
+          'text-max-width': '140px',
+          'width': 155,
+          'height': 58,
+          'shape': 'roundrectangle',
+          'color': '#F57F17',
+          'font-weight': '600',
+          'shadow-blur': 8,
+          'shadow-color': 'rgba(251,192,45,0.2)',
+          'shadow-offset-x': 0,
+          'shadow-offset-y': 3,
+          'shadow-opacity': 0.5,
+        }
+      },
+      {
+        selector: 'node[layer="outcome"]:child',
+        style: {
+          'background-color': '#E8F5E9',
+          'border-color': '#66BB6A',
+          'border-width': 1.5,
+          'label': 'data(label)',
+          'font-size': 9,
+          'font-weight': '500',
+          'text-valign': 'center',
+          'text-halign': 'center',
+          'text-wrap': 'wrap',
+          'text-max-width': '100px',
+          'width': 115,
+          'height': 52,
+          'shape': 'roundrectangle',
+          'color': '#2E7D32',
+          'shadow-blur': 5,
+          'shadow-color': 'rgba(102,187,106,0.15)',
+          'shadow-offset-x': 0,
+          'shadow-offset-y': 3,
+          'shadow-opacity': 0.4,
+        }
+      },
+      {
+        selector: 'node[layer="governance"]:child',
+        style: {
+          'background-color': '#F3E5F5',
+          'border-color': '#AB47BC',
+          'border-width': 1.5,
+          'label': 'data(label)',
+          'font-size': 9,
+          'font-weight': '400',
+          'text-valign': 'center',
+          'text-halign': 'center',
+          'text-wrap': 'wrap',
+          'text-max-width': '115px',
+          'width': 130,
+          'height': 52,
+          'shape': 'roundrectangle',
+          'color': '#6A1B9A',
+          'shadow-blur': 5,
+          'shadow-color': 'rgba(171,71,188,0.15)',
+          'shadow-offset-x': 0,
+          'shadow-offset-y': 3,
+          'shadow-opacity': 0.4,
+        }
+      },
+      {
+        selector: 'node[layer="platform"]:child',
+        style: {
+          'background-color': '#ECEFF1',
+          'border-color': '#546E7A',
+          'border-width': 1.5,
+          'label': 'data(label)',
+          'font-size': 9,
+          'font-weight': '400',
+          'text-valign': 'center',
+          'text-halign': 'center',
+          'text-wrap': 'wrap',
+          'text-max-width': '115px',
+          'width': 130,
+          'height': 52,
+          'shape': 'roundrectangle',
+          'color': '#263238',
+          'shadow-blur': 5,
+          'shadow-color': 'rgba(84,110,122,0.15)',
+          'shadow-offset-x': 0,
+          'shadow-offset-y': 3,
+          'shadow-opacity': 0.4,
+        }
+      },
+
+      // ── Edge styles ──
+      {
+        selector: 'edge',
+        style: {
+          'width': 1.4,
+          'line-color': '#546E7A',
+          'target-arrow-color': '#546E7A',
+          'target-arrow-shape': 'triangle',
+          'curve-style': 'bezier',
+          'arrow-scale': 0.85,
+          'label': 'data(label)',
+          'font-size': 8,
+          'text-rotation': 'autorotate',
+          'color': '#B0BEC5',
+          'text-background-color': '#1a1a3e',
+          'text-background-opacity': 0.85,
+          'text-background-padding': '3px',
+          'text-background-shape': 'roundrectangle',
+          'opacity': 0.7,
+          'text-margin-y': -8,
+        }
+      },
+      {
+        selector: 'edge[edgeType="phase"]',
+        style: {
+          'width': 3.5,
+          'line-color': '#42A5F5',
+          'target-arrow-color': '#42A5F5',
+          'font-size': 9,
+          'font-weight': 'bold',
+          'color': '#90CAF9',
+          'opacity': 1,
+          'arrow-scale': 1.2,
+        }
+      },
+      {
+        selector: 'edge[edgeType="feedback"]',
+        style: {
+          'width': 2.5,
+          'line-color': '#AB47BC',
+          'target-arrow-color': '#AB47BC',
+          'line-style': 'dashed',
+          'font-size': 9,
+          'color': '#CE93D8',
+          'opacity': 0.85,
+        }
+      },
+      {
+        selector: 'edge[edgeType="stakeholder"]',
+        style: {
+          'width': 1.1,
+          'line-color': '#FFB74D',
+          'target-arrow-color': '#FFB74D',
+          'opacity': 0.4,
+          'target-arrow-shape': 'vee',
+        }
+      },
+      {
+        selector: 'edge[edgeType="outcome"]',
+        style: {
+          'width': 1.6,
+          'line-color': '#66BB6A',
+          'target-arrow-color': '#66BB6A',
+          'opacity': 0.7,
+        }
+      },
+      {
+        selector: 'edge[edgeType="enabler"]',
+        style: {
+          'width': 1.3,
+          'line-color': '#78909C',
+          'target-arrow-color': '#78909C',
+          'line-style': 'dashed',
+          'opacity': 0.5,
+        }
+      },
+      {
+        selector: 'edge[edgeType="agent"]',
+        style: {
+          'width': 0.9,
+          'line-color': '#FDD835',
+          'target-arrow-color': '#FDD835',
+          'line-style': 'dotted',
+          'opacity': 0.3,
+          'target-arrow-shape': 'vee',
+          'arrow-scale': 0.6,
+        }
+      },
+
+      // ── Highlight & interaction states ──
+      {
+        selector: '.highlighted',
+        style: {
+          'border-width': 3.5,
+          'border-color': '#FF9100',
+          'background-opacity': 1,
+          'z-index': 999,
+          'shadow-blur': 16,
+          'shadow-color': 'rgba(255,145,0,0.55)',
+          'shadow-opacity': 1,
+        }
+      },
+      {
+        selector: '.highlighted-edge',
+        style: {
+          'width': 3.5,
+          'opacity': 1,
+          'z-index': 999,
+          'line-color': '#FF9100',
+          'target-arrow-color': '#FF9100',
+        }
+      },
+      {
+        selector: '.faded',
+        style: {
+          'opacity': 0.07,
+        }
+      },
+      {
+        selector: '.selected-node',
+        style: {
+          'border-width': 4,
+          'border-color': '#FF3D00',
+          'background-opacity': 1,
+          'z-index': 1000,
+          'shadow-blur': 22,
+          'shadow-color': 'rgba(255,61,0,0.65)',
+          'shadow-opacity': 1,
+        }
+      },
+      // Grabbed (dragging) state
+      {
+        selector: ':grabbed',
+        style: {
+          'shadow-blur': 20,
+          'shadow-color': 'rgba(66,165,245,0.5)',
+          'shadow-opacity': 1,
+          'border-width': 3,
+        }
+      },
+    ],
+
+    layout: {
+      name: 'dagre',
+      rankDir: 'TB',
+      nodeSep: 55,
+      rankSep: 100,
+      edgeSep: 25,
+      padding: 60,
+      animate: true,
+      animationDuration: 700,
+      animationEasing: 'ease-in-out-cubic',
+    }
+  });
+
+  // ═══════════════════════════════════════════════
+  // INTERACTION — Highlight upstream/downstream
+  // ═══════════════════════════════════════════════
+  function getConnectedElements(node) {
+    const upstream = new Set();
+    const downstream = new Set();
+    const visitedUp = new Set();
+    const visitedDown = new Set();
+
+    function walkUp(n) {
+      if (visitedUp.has(n.id())) return;
+      visitedUp.add(n.id());
+      const incomers = n.incomers();
+      incomers.nodes().forEach(src => {
+        upstream.add(src.id());
+        walkUp(src);
+      });
+      incomers.edges().forEach(e => upstream.add(e.id()));
+    }
+
+    function walkDown(n) {
+      if (visitedDown.has(n.id())) return;
+      visitedDown.add(n.id());
+      const outgoers = n.outgoers();
+      outgoers.nodes().forEach(tgt => {
+        downstream.add(tgt.id());
+        walkDown(tgt);
+      });
+      outgoers.edges().forEach(e => downstream.add(e.id()));
+    }
+
+    walkUp(node);
+    walkDown(node);
+    return { upstream, downstream };
+  }
+
+  cy.on('tap', 'node:child', function(evt) {
+    const node = evt.target;
+    cy.elements().removeClass('highlighted highlighted-edge faded selected-node');
+
+    const { upstream, downstream } = getConnectedElements(node);
+    const connectedIds = new Set([node.id(), ...upstream, ...downstream]);
+
+    // Include all ancestor parents
+    const parentIds = new Set();
+    cy.nodes().forEach(n => {
+      if (connectedIds.has(n.id())) {
+        let p = n.parent();
+        while (p.length) {
+          parentIds.add(p.id());
+          p = p.parent();
+        }
+      }
+    });
+
+    cy.elements().addClass('faded');
+
+    cy.elements().forEach(ele => {
+      if (connectedIds.has(ele.id()) || parentIds.has(ele.id())) {
+        ele.removeClass('faded');
+        if (ele.isNode() && ele.id() !== node.id()) {
+          ele.addClass('highlighted');
+        }
+        if (ele.isEdge()) {
+          ele.addClass('highlighted-edge');
+        }
+      }
+    });
+
+    node.removeClass('faded');
+    node.addClass('selected-node');
+
+    // Un-fade all ancestors
+    let par = node.parent();
+    while (par.length) {
+      par.removeClass('faded');
+      par = par.parent();
+    }
+
+    showInfo(node, upstream.size, downstream.size);
+  });
+
+  // Click background to reset
+  cy.on('tap', function(evt) {
+    if (evt.target === cy) {
+      cy.elements().removeClass('highlighted highlighted-edge faded selected-node');
+      hideInfo();
+    }
+  });
+
+  // Hover glow
+  cy.on('mouseover', 'node:child', function(evt) {
+    if (!cy.$('.selected-node').length) {
+      evt.target.style({ 'border-width': 3, 'shadow-blur': 12, 'shadow-opacity': 0.7 });
+      document.getElementById('cy').style.cursor = 'grab';
+    }
+  });
+  cy.on('mouseout', 'node:child', function(evt) {
+    if (!cy.$('.selected-node').length) {
+      evt.target.removeStyle('border-width shadow-blur shadow-opacity');
+      document.getElementById('cy').style.cursor = 'default';
+    }
+  });
+
+  // ═══════════════════════════════════════════════
+  // INFO PANEL
+  // ═══════════════════════════════════════════════
+  const infoPanel = document.getElementById('info-panel');
+  const infoTitle = document.getElementById('info-title');
+  const infoDetail = document.getElementById('info-detail');
+
+  function showInfo(node, upCount, downCount) {
+    const label = node.data('label').replace(/\n/g, ' ');
+    const layer = node.data('layer');
+    const desc = node.data('desc') || '';
+    const inDeg = node.incomers('edge').length;
+    const outDeg = node.outgoers('edge').length;
+
+    infoTitle.textContent = label;
+    infoDetail.innerHTML = `
+      <b>Layer:</b> ${layer.charAt(0).toUpperCase() + layer.slice(1)}<br>
+      ${desc ? `<b>Role:</b> ${desc}<br>` : ''}
+      <b>Direct in:</b> ${inDeg} &nbsp;&bull;&nbsp; <b>Direct out:</b> ${outDeg}<br>
+      <span class="badge badge-up">&uarr; ${upCount} upstream</span>
+      <span class="badge badge-down">&darr; ${downCount} downstream</span>
+    `;
+    infoPanel.style.display = 'block';
+
+    // Show resize controls for child nodes
+    const resizeSection = document.getElementById('resize-section');
+    if (!node.isParent()) {
+      resizeSection.style.display = 'block';
+      const curW = node.width();
+      const curH = node.height();
+      const wSlider = document.getElementById('resize-w');
+      const hSlider = document.getElementById('resize-h');
+      wSlider.value = curW;
+      hSlider.value = curH;
+      document.getElementById('resize-w-val').textContent = Math.round(curW);
+      document.getElementById('resize-h-val').textContent = Math.round(curH);
+
+      // Remove old listeners by replacing elements
+      const newW = wSlider.cloneNode(true);
+      const newH = hSlider.cloneNode(true);
+      wSlider.parentNode.replaceChild(newW, wSlider);
+      hSlider.parentNode.replaceChild(newH, hSlider);
+
+      newW.addEventListener('input', () => {
+        const v = parseInt(newW.value);
+        node.style('width', v);
+        document.getElementById('resize-w-val').textContent = v;
+      });
+      newH.addEventListener('input', () => {
+        const v = parseInt(newH.value);
+        node.style('height', v);
+        document.getElementById('resize-h-val').textContent = v;
+      });
+    } else {
+      resizeSection.style.display = 'none';
+    }
+  }
+
+  function hideInfo() {
+    infoPanel.style.display = 'none';
+  }
+
+  // ═══════════════════════════════════════════════
+  // CONTROLS
+  // ═══════════════════════════════════════════════
+  let locked = false;
+
+  document.getElementById('zoom-in').addEventListener('click', () => {
+    cy.animate({ zoom: { level: cy.zoom() * 1.4, renderedPosition: { x: cy.width() / 2, y: cy.height() / 2 } } }, { duration: 250 });
+  });
+
+  document.getElementById('zoom-out').addEventListener('click', () => {
+    cy.animate({ zoom: { level: cy.zoom() / 1.4, renderedPosition: { x: cy.width() / 2, y: cy.height() / 2 } } }, { duration: 250 });
+  });
+
+  document.getElementById('fit').addEventListener('click', () => {
+    cy.animate({ fit: { padding: 60 } }, { duration: 400 });
+  });
+
+  document.getElementById('relayout').addEventListener('click', () => {
+    cy.layout({
+      name: 'dagre',
+      rankDir: 'TB',
+      nodeSep: 55,
+      rankSep: 100,
+      edgeSep: 25,
+      padding: 60,
+      animate: true,
+      animationDuration: 700,
+    }).run();
+  });
+
+  document.getElementById('lock-toggle').addEventListener('click', function() {
+    locked = !locked;
+    cy.autoungrabify(locked);
+    this.innerHTML = locked ? '&#x1F512;' : '&#x1F513;';
+    this.classList.toggle('active', locked);
+    this.title = locked ? 'Unlock (enable dragging)' : 'Lock positions (prevent dragging)';
+  });
+
+  document.getElementById('reset').addEventListener('click', () => {
+    cy.elements().removeClass('highlighted highlighted-edge faded selected-node');
+    cy.animate({ fit: { padding: 60 } }, { duration: 400 });
+    hideInfo();
+  });
+
+  // Keyboard shortcuts
+  document.addEventListener('keydown', (e) => {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+    if (e.key === '+' || e.key === '=') {
+      cy.animate({ zoom: { level: cy.zoom() * 1.3, renderedPosition: { x: cy.width() / 2, y: cy.height() / 2 } } }, { duration: 200 });
+    } else if (e.key === '-') {
+      cy.animate({ zoom: { level: cy.zoom() / 1.3, renderedPosition: { x: cy.width() / 2, y: cy.height() / 2 } } }, { duration: 200 });
+    } else if (e.key === 'Escape') {
+      cy.elements().removeClass('highlighted highlighted-edge faded selected-node');
+      cy.animate({ fit: { padding: 60 } }, { duration: 400 });
+      hideInfo();
+    }
+  });
+
+  // Initial fit
+  setTimeout(() => cy.animate({ fit: { padding: 60 } }, { duration: 800 }), 150);
+});
+</script>
+</body>
+</html>
