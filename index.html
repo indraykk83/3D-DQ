@@ -14,15 +14,28 @@
       font-family: 'Inter', 'Segoe UI', sans-serif;
       background: linear-gradient(135deg, #0f0c29 0%, #1a1a3e 40%, #24243e 100%);
       color: #eee;
-      overflow: hidden;
-      height: 100vh;
+      overflow: auto;
+      min-height: 100vh;
+    }
+    #cy-wrapper {
+      width: 3200px;
+      height: 2200px;
+      position: relative;
+      min-width: 100vw;
+      min-height: 100vh;
     }
     #cy {
-      width: 100vw;
-      height: 100vh;
+      width: 100%;
+      height: 100%;
       position: absolute;
       top: 0; left: 0;
     }
+    /* Scrollbar styling */
+    ::-webkit-scrollbar { width: 10px; height: 10px; }
+    ::-webkit-scrollbar-track { background: rgba(15,12,41,0.5); }
+    ::-webkit-scrollbar-thumb { background: rgba(144,202,249,0.3); border-radius: 5px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(144,202,249,0.5); }
+    ::-webkit-scrollbar-corner { background: rgba(15,12,41,0.5); }
 
     /* ── Title Bar ── */
     #title-bar {
@@ -259,7 +272,9 @@
 
 <div id="drag-indicator">Drag mode: move nodes freely</div>
 
-<div id="cy"></div>
+<div id="cy-wrapper">
+  <div id="cy"></div>
+</div>
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
@@ -842,15 +857,63 @@ document.addEventListener('DOMContentLoaded', function() {
     ],
 
     layout: {
-      name: 'dagre',
-      rankDir: 'TB',
-      nodeSep: 55,
-      rankSep: 100,
-      edgeSep: 25,
+      name: 'preset',
+      positions: function(node) {
+        const positions = {
+          // ── Stakeholders (Row 0, y=80) ──
+          'DE':  { x: 350, y: 80 },
+          'AC':  { x: 550, y: 80 },
+          'PO':  { x: 750, y: 80 },
+          'OPS': { x: 1000, y: 80 },
+          'TL':  { x: 1250, y: 80 },
+          'DG':  { x: 1450, y: 80 },
+
+          // ── Detection (Row 1, y=350-550) ──
+          'C1':  { x: 200, y: 350 },
+          'C2':  { x: 420, y: 350 },
+          'C8':  { x: 640, y: 350 },
+          'C3':  { x: 320, y: 500 },
+          'C10': { x: 580, y: 500 },
+          'A_D1': { x: 420, y: 640 },
+
+          // ── Diagnosis (Row 1, y=350-550, offset right) ──
+          'C6':  { x: 950, y: 420 },
+          'A_D2': { x: 950, y: 580 },
+
+          // ── Deflection (Row 1, y=350-550, far right) ──
+          'C4':  { x: 1250, y: 350 },
+          'C7':  { x: 1450, y: 350 },
+          'C9':  { x: 1350, y: 500 },
+          'A_D3': { x: 1350, y: 640 },
+
+          // ── Business Outcomes (Row 2, y=900) ──
+          'O1':  { x: 250, y: 900 },
+          'O2':  { x: 480, y: 900 },
+          'O3':  { x: 710, y: 900 },
+          'O4':  { x: 940, y: 900 },
+          'O5':  { x: 1170, y: 900 },
+          'O6':  { x: 1400, y: 900 },
+
+          // ── Platform Enablers (Row 3, y=1150, left side) ──
+          'P1':  { x: 180, y: 1120 },
+          'P2':  { x: 380, y: 1120 },
+          'P3':  { x: 580, y: 1120 },
+          'P4':  { x: 780, y: 1120 },
+          'P5':  { x: 180, y: 1270 },
+          'P6':  { x: 380, y: 1270 },
+          'P7':  { x: 580, y: 1270 },
+          'P8':  { x: 780, y: 1270 },
+
+          // ── Governance (Row 3, y=1150, right side) ──
+          'G1':  { x: 1100, y: 1150 },
+          'G2':  { x: 1320, y: 1150 },
+          'G3':  { x: 1540, y: 1150 },
+        };
+        return positions[node.id()] || { x: 800, y: 700 };
+      },
       padding: 60,
       animate: true,
       animationDuration: 700,
-      animationEasing: 'ease-in-out-cubic',
     }
   });
 
@@ -1038,12 +1101,46 @@ document.addEventListener('DOMContentLoaded', function() {
   });
 
   document.getElementById('relayout').addEventListener('click', () => {
+    const positions = {
+      'DE':  { x: 350, y: 80 },
+      'AC':  { x: 550, y: 80 },
+      'PO':  { x: 750, y: 80 },
+      'OPS': { x: 1000, y: 80 },
+      'TL':  { x: 1250, y: 80 },
+      'DG':  { x: 1450, y: 80 },
+      'C1':  { x: 200, y: 350 },
+      'C2':  { x: 420, y: 350 },
+      'C8':  { x: 640, y: 350 },
+      'C3':  { x: 320, y: 500 },
+      'C10': { x: 580, y: 500 },
+      'A_D1': { x: 420, y: 640 },
+      'C6':  { x: 950, y: 420 },
+      'A_D2': { x: 950, y: 580 },
+      'C4':  { x: 1250, y: 350 },
+      'C7':  { x: 1450, y: 350 },
+      'C9':  { x: 1350, y: 500 },
+      'A_D3': { x: 1350, y: 640 },
+      'O1':  { x: 250, y: 900 },
+      'O2':  { x: 480, y: 900 },
+      'O3':  { x: 710, y: 900 },
+      'O4':  { x: 940, y: 900 },
+      'O5':  { x: 1170, y: 900 },
+      'O6':  { x: 1400, y: 900 },
+      'P1':  { x: 180, y: 1120 },
+      'P2':  { x: 380, y: 1120 },
+      'P3':  { x: 580, y: 1120 },
+      'P4':  { x: 780, y: 1120 },
+      'P5':  { x: 180, y: 1270 },
+      'P6':  { x: 380, y: 1270 },
+      'P7':  { x: 580, y: 1270 },
+      'P8':  { x: 780, y: 1270 },
+      'G1':  { x: 1100, y: 1150 },
+      'G2':  { x: 1320, y: 1150 },
+      'G3':  { x: 1540, y: 1150 },
+    };
     cy.layout({
-      name: 'dagre',
-      rankDir: 'TB',
-      nodeSep: 55,
-      rankSep: 100,
-      edgeSep: 25,
+      name: 'preset',
+      positions: function(node) { return positions[node.id()] || { x: 800, y: 700 }; },
       padding: 60,
       animate: true,
       animationDuration: 700,
